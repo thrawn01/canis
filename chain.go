@@ -1,7 +1,9 @@
 // Package alice provides a convenient way to chain http handlers.
 package canis
 
-import "net/http"
+import (
+	"net/http"
+)
 
 type Middleware func(http.Handler) http.Handler
 
