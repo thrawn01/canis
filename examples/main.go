@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/thrawn01/canis"
 	"github.com/thrawn01/canis/middleware/logger"
@@ -21,23 +23,7 @@ func main() {
 		log.Fatal("Database connection failed:", err)
 	}
 
-	router.GET("/pies/:id", func(ctx canis.Context, resp http.ResponseWriter, req *http.Request) {
-		// Fetch our pie by ID from the database
-		cursor, err := rethink.Table("pies").Get(ctx.ByName("id")).Run(db)
-		if err != nil {
-			log.Error(err)
-			canis.Abort(resp, http.StatusText(500), 500)
-		}
-
-		var pie interface{}
-		err = cursor.All(&pie)
-		if err := cursor.One(&pie); err != nil {
-			canis.Abort(resp, http.StatusText(401), 401)
-		}
-		canis.ToJson(resp, pie)
-	})
-
-	chain := canis.Chain(
+	common := canis.Chain(
 		logger.Access(logger.ToFile("/var/log/pie/access.log")),
 		logger.Error(logger.ToFile("/var/log/pie/error.log")),
 		request.CatchPanic(),
@@ -55,15 +41,74 @@ func main() {
 		),
 	)
 
-	// Middleware that accepts a context
-	chain.Add(openstack.KeystoneAuth(
-		openstack.AuthUrl("http://identity.rackspace.com")
+	// Extend the common chain with authentication, returning a new chain
+	requireAuth := canis.Chain(
+		openstack.AuthUrl("http://identity.rackspace.com"),
 	)
 
-	// Middlware the does not accept a context
-	chain.Use(
-		noncontext.Middlware()
-	)
+	v1API := canis.Router()
 
-	chain.Then(server)
+	// Matches /v1/pies/:id
+	v1API.GET("/:id", func(ctx canis.Context, resp http.ResponseWriter, req *http.Request) {
+		// Fetch our pie by ID from the database
+		cursor, err := rethink.Table("pies").Get(ctx.ByName("id")).Run(db)
+		if err != nil {
+			log.Error(err)
+			canis.Abort(resp, http.StatusText(500), 500)
+		}
+
+		var pie interface{}
+		err = cursor.All(&pie)
+		if err := cursor.One(&pie); err != nil {
+			canis.Abort(resp, http.StatusText(401), 401)
+		}
+		canis.ToJson(resp, pie)
+	})
+
+	v1 := canis.Router()
+	// Matches GET /v1
+	v1.GET("/", func(ctx canis.Context, resp http.ResponseWriter, req *http.Request) {
+		// TODO: Serve up some docs
+	})
+	// POST to /pies require auth
+	v1.POST("/pies", requireAuth.Then(v1API))
+	// GET to /pies do not require auth
+	v1.GET("/pies", common.Then(v1API))
+
+	// Handle any /v1 requests with common middleware
+	router.Handle("", "/v1", common.Then(v1))
+
+	v2API := canis.Router()
+
+	// Matches /v2
+	v1.GET("/", func(ctx canis.Context, resp http.ResponseWriter, req *http.Request) {
+		// TODO: Serve up some docs
+	})
+
+	// Matches /v2/pies/:id
+	v2API.GET("/pies/:id", requireAuth.Then(func(ctx canis.Context, resp http.ResponseWriter, req *http.Request) {
+		// Fetch our pie by ID from the database
+		cursor, err := rethink.Table("pies").Get(ctx.ByName("id")).Run(db)
+		if err != nil {
+			log.Error(err)
+			canis.Abort(resp, http.StatusText(500), 500)
+		}
+
+		var pie interface{}
+		err = cursor.All(&pie)
+		if err := cursor.One(&pie); err != nil {
+			canis.Abort(resp, http.StatusText(401), 401)
+		}
+		canis.ToJson(resp, pie)
+	}))
+	// All the /v2 calls should have the common middleware
+	v2 := common.Then(v2API)
+
+	// Handle any /v2 requests
+	router.Handle("", "/v2", v2)
+
+	err = http.ListenAndServe("localhost:8080", router)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
