@@ -3,9 +3,12 @@ package canis
 
 import (
 	"net/http"
+
+	"github.com/thrawn01/httprouter"
+	"golang.org/x/net/context"
 )
 
-type Middleware func(http.Handler) http.Handler
+type Middleware func(httprouter.ContextHandler) httprouter.ContextHandler
 
 type MiddlewareChain struct {
 	middleware []Middleware
@@ -17,20 +20,21 @@ func Chain(middleware ...Middleware) *MiddlewareChain {
 }
 
 // End the chain and return the http.Handler
-func (self *MiddlewareChain) Then(handler http.Handler) http.Handler {
+func (self *MiddlewareChain) Then(handler httprouter.ContextHandler) http.Handler {
 	for i := len(self.middleware) - 1; i >= 0; i-- {
 		handler = self.middleware[i](handler)
 	}
-
-	return handler
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		handler.ServeHTTP(context.Background(), w, req)
+	})
 }
 
 // Same as Then(), but accepts a Middleware
-func (self *MiddlewareChain) ThenFunc(handlerFunc http.HandlerFunc) http.Handler {
+func (self *MiddlewareChain) ThenFunc(handlerFunc httprouter.ContextHandlerFunc) http.Handler {
 	if handlerFunc == nil {
 		return self.Then(nil)
 	}
-	return self.Then(http.HandlerFunc(handlerFunc))
+	return self.Then(httprouter.ContextHandlerFunc(handlerFunc))
 }
 
 // Add middleware to the chain
@@ -55,4 +59,3 @@ func (self *MiddlewareChain) Extend(middleware ...Middleware) *MiddlewareChain {
 	// Return the new chain
 	return Chain(new...)
 }
-

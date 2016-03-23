@@ -8,6 +8,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/thrawn01/canis"
+	"github.com/thrawn01/httprouter"
+	"golang.org/x/net/context"
 )
 
 func TestArgs(t *testing.T) {
@@ -17,20 +19,20 @@ func TestArgs(t *testing.T) {
 
 func newMiddleware(body string) canis.Middleware {
 	body = body + "|"
-	return func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return func(h httprouter.ContextHandler) httprouter.ContextHandler {
+		return httprouter.ContextHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(body))
-			h.ServeHTTP(w, r)
+			h.ServeHTTP(ctx, w, r)
 		})
 	}
 }
 
 var _ = Describe("MiddlewareChain", func() {
-	var app http.Handler
+	var app httprouter.ContextHandler
 	var resp *httptest.ResponseRecorder
 
 	BeforeEach(func() {
-		app = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		app = httprouter.ContextHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("app"))
 		})
 		resp = httptest.NewRecorder()
