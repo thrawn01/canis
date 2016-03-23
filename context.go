@@ -18,8 +18,3 @@ type paramContext struct {
 	Context
 	params httprouter.Params
 }
-
-func main() {
-	router := httprouter.New()
-	router.GET()
-}

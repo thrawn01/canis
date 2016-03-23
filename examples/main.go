@@ -1,4 +1,4 @@
-package main
+package examples
 
 import (
 	"net/http"
@@ -73,7 +73,7 @@ func main() {
 	// POST to /pies require auth
 	v1.POST("/pies", requireAuth.Then(v1API))
 	// GET to /pies do not require auth
-	v1.GET("/pies", common.Then(v1API))
+	v1.GET("/pies", v1API)
 
 	// Handle any /v1 requests with common middleware
 	router.Handle("", "/v1", common.Then(v1))
@@ -111,4 +111,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Asking for / and /docs does not require auth, but requests are logged and throttled
+	router.GET("/", common.Then(serveDocs))
+	router.GET("/docs", common.Then(serveDocs))
+
+	// All other requests require auth
+	router.Then(requireAuth.Then(API))
 }
