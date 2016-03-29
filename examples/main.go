@@ -5,10 +5,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/thrawn01/canis"
-	"github.com/thrawn01/canis/middleware/logger"
-	"github.com/thrawn01/canis/middleware/openstack"
-	"github.com/thrawn01/canis/middleware/request"
-	"github.com/thrawn01/canis/middleware/throttle"
+	"github.com/thrawn01/canis/request/openstack"
+	"github.com/thrawn01/canis/request/request"
+	"github.com/thrawn01/canis/request/throttle"
 )
 
 func main() {
@@ -24,8 +23,7 @@ func main() {
 	}
 
 	common := canis.Chain(
-		logger.Access(logger.ToFile("/var/log/pie/access.log")),
-		logger.Error(logger.ToFile("/var/log/pie/error.log")),
+		request.ErrorLogger(log),
 		request.CatchPanic(),
 		request.Timeout(30),
 		throttle.Throttler(
