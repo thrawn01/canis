@@ -12,7 +12,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/oxtoacart/bpool"
 	"github.com/thrawn01/canis"
-	"github.com/thrawn01/httprouter"
 )
 
 var PoolSize = 20000
@@ -110,8 +109,8 @@ type RequestLogger struct {
 	capture    bool
 }
 
-func (self *RequestLogger) Handler(handler httprouter.ContextHandler) httprouter.ContextHandler {
-	return httprouter.ContextHandlerFunc(func(ctx context.Context, originalResp http.ResponseWriter, req *http.Request) {
+func (self *RequestLogger) Handler(handler canis.ContextHandler) canis.ContextHandler {
+	return canis.ContextHandlerFunc(func(ctx context.Context, originalResp http.ResponseWriter, req *http.Request) {
 		buf := self.bufferPool.Get()
 
 		// TODO: Parse X-Forward-Host if present

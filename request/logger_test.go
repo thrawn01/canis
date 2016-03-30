@@ -18,12 +18,12 @@ import (
 	"golang.org/x/net/context"
 )
 
-func TestArgs(t *testing.T) {
+func TestLogger(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Request Logger")
 }
 
-var _ = Describe("logger", func() {
+var _ = Describe("request", func() {
 	var app canis.ContextHandler
 	var resp *httptest.ResponseRecorder
 
