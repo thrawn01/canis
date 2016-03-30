@@ -15,17 +15,16 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/thrawn01/canis"
 	"github.com/thrawn01/canis/request"
-	"github.com/thrawn01/httprouter"
 	"golang.org/x/net/context"
 )
 
 func TestArgs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Args Parser")
+	RunSpecs(t, "Request Logger")
 }
 
 var _ = Describe("logger", func() {
-	var app httprouter.ContextHandler
+	var app canis.ContextHandler
 	var resp *httptest.ResponseRecorder
 
 	/*BeforeEach(func() {
@@ -33,7 +32,7 @@ var _ = Describe("logger", func() {
 
 	Describe("Logger()", func() {
 		It("should log normal 200 class requests", func() {
-			app = httprouter.ContextHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+			app = canis.ContextHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(200)
 				w.Write([]byte("payload"))
 			})
@@ -56,7 +55,7 @@ var _ = Describe("logger", func() {
 
 	Describe("ErrorLogger()", func() {
 		It("should log the return payload for non 200 class requests", func() {
-			app = httprouter.ContextHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+			app = canis.ContextHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(500)
 				w.Write([]byte("some error"))
 			})

@@ -14,7 +14,7 @@ import (
 
 func TestArgs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Args Parser")
+	RunSpecs(t, "Chain")
 }
 
 func newMiddleware(body string) canis.Middleware {

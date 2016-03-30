@@ -1,4 +1,4 @@
-// Package alice provides a convenient way to chain http handlers.
+// This code is based on the excellent 'alice' module  https://github.com/justinas/alice
 package canis
 
 import (
