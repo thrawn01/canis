@@ -18,12 +18,19 @@ func TestArgs(t *testing.T) {
 
 func newMiddleware(body string) canis.Middleware {
 	body = body + "|"
-	return func(h canis.ContextHandler) canis.ContextHandler {
-		return canis.ContextHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(body))
-			h.ServeHTTP(ctx, w, r)
+	return func(next canis.ContextHandler) canis.ContextHandler {
+		return canis.ContextHandlerFunc(func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+			resp.Write([]byte(body))
+			next.ServeHTTP(ctx, resp, req)
 		})
 	}
+}
+
+func newStdMiddleware(body string) http.Handler {
+	body = body + "|"
+	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		resp.Write([]byte(body))
+	})
 }
 
 var _ = Describe("MiddlewareChain", func() {
@@ -45,6 +52,15 @@ var _ = Describe("MiddlewareChain", func() {
 			handler := chain.Then(app)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Body.String()).To(Equal("one|app"))
+		})
+
+		It("should create a new MiddlewareChain with http.Handler middleware", func() {
+			chain := canis.Chain(newStdMiddleware("one"), newMiddleware("two"))
+			req, _ := http.NewRequest("GET", "/", nil)
+
+			handler := chain.Then(app)
+			handler.ServeHTTP(resp, req)
+			Expect(resp.Body.String()).To(Equal("one|two|app"))
 		})
 	})
 	Describe("MiddlwareChain.Add()", func() {

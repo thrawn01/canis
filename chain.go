@@ -4,6 +4,8 @@ package canis
 import (
 	"net/http"
 
+	"fmt"
+
 	"golang.org/x/net/context"
 )
 
@@ -14,8 +16,10 @@ type MiddlewareChain struct {
 }
 
 // Create a new chain
-func Chain(middleware ...Middleware) *MiddlewareChain {
-	return &MiddlewareChain{append(([]Middleware)(nil), middleware...)}
+func Chain(middleware ...interface{}) *MiddlewareChain {
+	chain := &MiddlewareChain{}
+	chain.Add(middleware...)
+	return chain
 }
 
 // End the chain and return the http.Handler
@@ -28,7 +32,7 @@ func (self *MiddlewareChain) Then(handler ContextHandler) http.Handler {
 	})
 }
 
-// Same as Then(), but accepts a Middleware
+// Same as Then(), but accepts a ContextHandlerFunc
 func (self *MiddlewareChain) ThenFunc(handlerFunc ContextHandlerFunc) http.Handler {
 	if handlerFunc == nil {
 		return self.Then(nil)
@@ -37,24 +41,52 @@ func (self *MiddlewareChain) ThenFunc(handlerFunc ContextHandlerFunc) http.Handl
 }
 
 // Add middleware to the chain
-func (self *MiddlewareChain) Add(middleware ...Middleware) *MiddlewareChain {
-	self.middleware = append(self.middleware, middleware...)
+func (self *MiddlewareChain) Add(middleware ...interface{}) *MiddlewareChain {
+	self.middleware = appendMiddleware(self.middleware, middleware...)
 	return self
 }
 
 // Add middleware to the chain
-func (self *MiddlewareChain) Use(middleware ...Middleware) *MiddlewareChain {
-	self.middleware = append(self.middleware, middleware...)
+func (self *MiddlewareChain) Use(middleware ...interface{}) *MiddlewareChain {
+	self.middleware = appendMiddleware(self.middleware, middleware...)
 	return self
 }
 
 // Creates a new chain from the existing chain new middleware
-func (self *MiddlewareChain) Extend(middleware ...Middleware) *MiddlewareChain {
-	new := make([]Middleware, len(self.middleware)+len(middleware))
+func (self *MiddlewareChain) Extend(middleware ...interface{}) *MiddlewareChain {
+	new := make([]Middleware, len(self.middleware))
 	// Copy all the existing middleware to the new chain list
 	copy(new, self.middleware)
 	// Append the middleware passed in to the end of the middleware list
-	copy(new[len(self.middleware):], middleware)
+	new = appendMiddleware(new, middleware...)
 	// Return the new chain
-	return Chain(new...)
+	return &MiddlewareChain{new}
+}
+
+func appendMiddleware(dest []Middleware, middleware ...interface{}) []Middleware {
+	for _, ware := range middleware {
+		switch t := ware.(type) {
+
+		// Normal Middleware
+		case Middleware:
+			dest = append(dest, t)
+		// Handle http.Handler middleware
+		case http.Handler:
+			// NOTE: http.Handler middleware can not catch panic's as they are not in the chain,
+			// they also can not modify http.ResponseWriter and expect modifications to propigated up the chain
+			wrapper := func(next ContextHandler) ContextHandler {
+				return ContextHandlerFunc(func(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+					// Call our normal http.Handler style middleware
+					t.ServeHTTP(resp, req)
+					// Continue to call the next middleware in the stack
+					next.ServeHTTP(ctx, resp, req)
+				})
+			}
+			dest = append(dest, wrapper)
+		default:
+			panic(fmt.Sprintf("unsupported middleware handler signature %T", t))
+		}
+
+	}
+	return dest
 }
